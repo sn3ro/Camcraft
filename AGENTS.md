@@ -592,8 +592,21 @@ tests are in `crates/ui/tests/`; they start the real app through
   | Tier | When | Target | Runs |
   |---|---|---|---|
   | quick | each patch, by the agent or gate-runner | ≤ 5 min | only the test binaries that the diff touches, one step for each binary; debug; no heavy lanes |
-  | batch | before a batch is committed; each push to `main` | ≤ 20 min | one build, then one step for each debug test binary that is not slow (kernel and ui included), clippy |
+  | batch | before a batch is committed; each push to `main` | ≤ 20 min | one build for each crate, then one step for each debug test binary that is not slow (kernel and ui included), in parallel lanes; clippy |
   | release | only at a cut | - | one step for each debug test binary and the `--ignored` heavy lanes in release |
+- **The light lane** (#2569). `cargo xtask gate light` runs the light twins
+  of the heavy tests, in release, at review and merge time. A light twin is
+  next to its full test, on a smaller fixture or a reduced set. The full
+  test keeps its golden asserts and its pinned readings. A red light run is
+  a note on the PR: the author runs the full heavy steps locally, and they
+  must pass before the cut gate starts again. A local run never replaces
+  the cut gate.
+  - A twin has the ignore reason `light lane: ...` and the name
+    `<full test>_light`. The gate refuses a twin whose file has no
+    `#[ignore]`d full test.
+  - A red light run prints the note: each red step, with the command of
+    its full heavy step (`cargo xtask gate release --only "<crate> heavy:
+    <target>"`).
 - **Heavy lanes at review** (#2568). `cargo xtask gate heavy [--base main]`
   maps the diff to the heavy lanes that it reaches and runs them in release
   with `--ignored`. The reach follows the dependencies between our crates: a
@@ -609,6 +622,14 @@ tests are in `crates/ui/tests/`; they start the real app through
   Run them one by one: `cargo xtask gate test <name> [--crate c] [--binary b]
   [--exact]`. Run a full suite only when the change touches what that suite
   covers. Run the full set only at a release cut.
+- **Gate job budget** (#2814). The default is the available CPU count from
+  `std::thread::available_parallelism()`, with a floor of 2 and a cap of 64.
+  If CPU detection fails, the default is 2. `CAMCRAFT_GATE_JOBS` overrides
+  it with any positive whole number. The override has no floor or cap.
+  A bad value uses the default and prints a diagnostic. The gate and its
+  `--dry-run` plan print the budget and its source. Batch and release share
+  the budget over at most `max(1, budget / 2)` lanes. A build, an isolated
+  test, a UI step or clippy runs alone with the full budget.
 - **Shared compile cache** (optional, sccache, #900): never export
   `CARGO_TARGET_DIR`, because it makes each worktree miss the cache. The
   `gate` skill has the setup.
@@ -774,6 +795,11 @@ has the procedure. Its rules:
   `main`. From step 1 of the cut to the tag, nothing else merges.
 - The release tier runs on the cut runner (`cut.yml`). The tagged tree is
   exactly the gated tree.
+- **Local full rerun** (#2569). After a red cut gate, the author runs the
+  red steps in full, locally, in release mode: `cargo xtask gate release
+  --failed gate-logs/<run>` (the logs of the red run), or `--only "<step>"`.
+  They must pass before the cut gate starts again. A local run never
+  replaces the cut gate.
 - Cuts and tags stay with the maintainer.
 
 **Every cut tag is published.** A cut is not complete until its tag is on
