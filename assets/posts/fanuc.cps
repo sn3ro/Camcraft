@@ -880,7 +880,10 @@ function afterOp() {
   if (!ask) return;
   if (next && (ask === "optional-stop" || ask === "stop")) {
     // #1532: a setup change - Z up to its reference point, clear of
-    // the part, then say what comes next before the stop.
+    // the part, then say what comes next before the stop. #4511: a
+    // reference return under TCPM is one many controls alarm on, so a
+    // tilted section's G43.4 is cancelled first, as Go home does.
+    if (tcpmOn) { block(["G49"]); tcpmOn = false; }
     retractHome(false);
     if (optStr("safeRetract", "G28") !== "G53") block(["G90"]);
     note("SETUP CHANGE - NEXT: " + next);

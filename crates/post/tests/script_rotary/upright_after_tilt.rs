@@ -22,6 +22,8 @@ use crate::ac_trunnion_support;
 mod program_end; // #3540: the program end returns the rotaries too
 #[path = "upright_after_tilt/tool_change_retract.rs"]
 mod tool_change_retract; // #4341: TCPM off before the tool-change retract
+#[path = "upright_after_tilt/setup_change_stop.rs"]
+mod setup_change_stop; // #4511: TCPM off before the setup-change lift
 
 use camcraft_post::cl::{CycleKind, Move, MoveKind, Toolpath};
 use camcraft_post::geometry::Point3;
