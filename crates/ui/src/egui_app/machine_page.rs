@@ -23,7 +23,7 @@ use camcraft_app::{machine, posting};
 
 use crate::state::{CommandKind, State};
 
-use super::layout::{group, prop_grid};
+use super::layout::{button, button_sized, choice_button_enabled, group, list_row, prop_grid};
 use super::setup_pages::{ownership, Mount};
 use super::wcs_page::{cell_w, even_row};
 
@@ -60,7 +60,7 @@ pub(super) fn machine_page(ui: &mut Ui, state: &mut State, ctx: Option<&str>) {
     let (path, m) = machine::of(&state.world);
     let names: Vec<&str> = posting::MACHINES.iter().map(|(n, _)| *n).collect();
     group(ui, GROUPS[1], None, |ui| {
-        ui.label(RichText::new(FILE_HELP).small().weak());
+        list_row(ui, RichText::new(FILE_HELP).small().weak());
         library_row(ui, state, &path);
         match &m {
             Some(m) => {
@@ -75,7 +75,7 @@ pub(super) fn machine_page(ui: &mut Ui, state: &mut State, ctx: Option<&str>) {
                 super::machine_grid::machine_grid(ui, "machine_overview", m, state.units(), &[("Source", source)], OVERVIEW_GAP);
             }
             None => {
-                ui.label(NO_MACHINE);
+                list_row(ui, NO_MACHINE);
             }
         }
     });
@@ -115,9 +115,9 @@ fn library_row(ui: &mut Ui, state: &mut State, path: &str) {
     // button first, so the combo (which fills the remaining width) cannot
     // push the button out of the cell.
     prop_grid(ui, "machine_library_grid", |ui| {
-        ui.label("Library");
+        list_row(ui, "Library");
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let refresh = ui.button("Refresh").on_hover_text("Read the machine folder again");
+            let refresh = button(ui, "Refresh").on_hover_text("Read the machine folder again");
             if super::fields::named(refresh, REFRESH_MACHINES).clicked() {
                 // #2380: read the shipped folder again, then list the
                 // catalogue again (its shipped part is that scan).
@@ -131,7 +131,7 @@ fn library_row(ui: &mut Ui, state: &mut State, path: &str) {
                     }
                     for e in group {
                         let on = current.is_some_and(|c| c.source == e.source);
-                        let r = ui.add_enabled(e.is_valid(), egui::Button::selectable(on, library_label(e)));
+                        let r = choice_button_enabled(ui, e.is_valid(), on, library_label(e));
                         if r.clicked() && !on {
                             pick = Some(e.source.clone());
                         }
@@ -174,7 +174,7 @@ fn actions(ui: &mut Ui, state: &mut State, has_machine: bool) {
                         hit = Some(0);
                     }
                     for (i, label) in ["Edit", "Clear"].iter().enumerate() {
-                        if ui.add_sized(size, egui::Button::new(*label)).clicked() {
+                        if button_sized(ui, size, *label).clicked() {
                             hit = Some(i + 1);
                         }
                     }

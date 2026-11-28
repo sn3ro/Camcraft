@@ -21,6 +21,7 @@ use camcraft_app::units::Unit;
 
 use super::{fields, pages};
 use crate::state::{CommandKind, State};
+use super::layout::{button, checkbox, drag_field, list_row, text_field};
 
 /// The open window's whole state: the draft and where it was mounted
 /// from. Ephemeral like `tool_shape_editor` - never saved, never undoable;
@@ -62,10 +63,10 @@ pub(crate) fn window(ctx: &egui::Context, state: &mut State) {
         .default_size([480.0, 560.0])
         .show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
-                ui.label("Model");
-                fields::named(ui.add(TextEdit::singleline(&mut ed.machine.model).desired_width(150.0)), "Machine model");
-                ui.label("Vendor");
-                fields::named(ui.add(TextEdit::singleline(&mut ed.machine.vendor).desired_width(110.0)), "Machine vendor");
+                list_row(ui, "Model");
+                fields::named(text_field(ui, TextEdit::singleline(&mut ed.machine.model).desired_width(150.0)), "Machine model");
+                list_row(ui, "Vendor");
+                fields::named(text_field(ui, TextEdit::singleline(&mut ed.machine.vendor).desired_width(110.0)), "Machine vendor");
             });
             // The fields scroll; Apply and Revert stay in reach (#535: the
             // wire section makes the window taller than a short screen).
@@ -97,10 +98,10 @@ pub(crate) fn window(ctx: &egui::Context, state: &mut State) {
                 super::machine_grid::machine_grid(ui, "machine_editor_overview", &ed.machine, u, &[], super::machine_grid::ROW_GAP);
             });
             ui.horizontal(|ui| {
-                if ui.button("Apply").clicked() {
+                if button(ui, "Apply").clicked() {
                     apply = true;
                 }
-                if ui.button("Revert to mounted").clicked() {
+                if button(ui, "Revert to mounted").clicked() {
                     revert = true;
                 }
             });
@@ -162,26 +163,26 @@ fn draw_kind(ui: &mut Ui, m: &mut Machine) {
     if idx == 0 && m.kind.is_some() {
         m.kind = None;
     }
-    ui.label("auto follows the axes below: X/Y/Z is a mill, X/Z is a lathe, Y plus a rotary is a mill-turn; a plasma table must say plasma");
+    list_row(ui, "auto follows the axes below: X/Y/Z is a mill, X/Z is a lathe, Y plus a rotary is a mill-turn; a plasma table must say plasma");
 }
 
 fn draw_spindle(ui: &mut Ui, u: Unit, m: &mut Machine) {
     pages::field(ui, "Spindle (rpm)");
     ui.horizontal(|ui| {
-        ui.label("min");
+        list_row(ui, "min");
         opt(ui, |ui, v| fields::num_plain_named(ui, v, "Spindle min rpm"), &mut m.spindle_min);
-        ui.label("max");
+        list_row(ui, "max");
         opt(ui, |ui, v| fields::num_plain_named(ui, v, "Spindle max rpm"), &mut m.spindle_max);
     });
     ui.horizontal(|ui| {
-        ui.label("motor power");
-        ui.label("kW");
+        list_row(ui, "motor power");
+        list_row(ui, "kW");
         opt(ui, |ui, v| fields::num_plain_named(ui, v, "Spindle motor power (kW)"), &mut m.spindle_power);
-        ui.label("· body");
+        list_row(ui, "· body");
         opt(ui, |ui, v| fields::num_named(ui, u, v, "Spindle body diameter"), &mut m.spindle_d);
-        ui.label("mm");
+        list_row(ui, "mm");
         opt(ui, |ui, v| fields::num_named(ui, u, v, "Spindle body length above holder"), &mut m.spindle_len);
-        ui.label("mm above holder");
+        list_row(ui, "mm above holder");
     });
 }
 
@@ -191,34 +192,34 @@ fn draw_axes(ui: &mut Ui, u: Unit, m: &mut Machine) {
     for i in 0..m.axes.len() {
         let a = &mut m.axes[i];
         ui.horizontal(|ui| {
-            fields::named(ui.add(TextEdit::singleline(&mut a.name).desired_width(16.0).char_limit(2)), &format!("Axis {} name", i + 1));
+            fields::named(text_field(ui, TextEdit::singleline(&mut a.name).desired_width(16.0).char_limit(2)), &format!("Axis {} name", i + 1));
             let ax = {
                 let t = a.name.trim();
                 if t.is_empty() { format!("#{}", i + 1) } else { t.to_owned() }
             };
             if a.rotary {
-                ui.label("rotary");
+                list_row(ui, "rotary");
             }
-            ui.label("rapid");
+            list_row(ui, "rapid");
             opt(ui, |ui, v| fields::num_feed_named(ui, u, v, &format!("Axis {ax} rapid")), &mut a.rapid);
-            ui.label("feed");
+            list_row(ui, "feed");
             opt(ui, |ui, v| fields::num_feed_named(ui, u, v, &format!("Axis {ax} feed")), &mut a.feed);
-            ui.label("travel");
+            list_row(ui, "travel");
             let mut stated = a.travel.is_some();
-            if ui.checkbox(&mut stated, "").changed() {
+            if checkbox(ui, &mut stated, "").changed() {
                 a.travel = if stated { Some((0.0, 1.0)) } else { None };
             }
             if let Some((lo, hi)) = &mut a.travel {
                 fields::num_named(ui, u, lo, &format!("Axis {ax} travel min"));
-                ui.label("..");
+                list_row(ui, "..");
                 fields::num_named(ui, u, hi, &format!("Axis {ax} travel max"));
             }
-            ui.label("res");
+            list_row(ui, "res");
             opt(ui, |ui, v| fields::num_named(ui, u, v, &format!("Axis {ax} resolution")), &mut a.resolution);
             if !a.rotary {
                 draw_direction(ui, i, a);
             }
-            if ui.button("✖").clicked() {
+            if button(ui, "✖").clicked() {
                 remove = Some(i);
             }
         });
@@ -226,7 +227,7 @@ fn draw_axes(ui: &mut Ui, u: Unit, m: &mut Machine) {
     if let Some(i) = remove {
         m.axes.remove(i);
     }
-    if ui.button("add axis").clicked() {
+    if button(ui, "add axis").clicked() {
         m.axes.push(machine::AxisLimits {
             name: "U".to_owned(),
             ..Default::default()
@@ -241,7 +242,7 @@ fn draw_axes(ui: &mut Ui, u: Unit, m: &mut Machine) {
 /// A draft edit like every field - Apply's command is the undo step.
 fn draw_direction(ui: &mut Ui, i: usize, a: &mut machine::AxisLimits) {
     let (std_word, inv_word) = direction_words(&a.name);
-    ui.label(format!("{}+ moves", a.name.trim()));
+    list_row(ui, format!("{}+ moves", a.name.trim()));
     let shown = if a.direction.is_standard() { std_word } else { inv_word };
     let cb = ComboBox::from_id_salt(("axis-direction", i))
         .selected_text(shown)
@@ -258,7 +259,7 @@ fn draw_direction(ui: &mut Ui, i: usize, a: &mut machine::AxisLimits) {
         } else {
             "(posting refused for this axis)"
         };
-        ui.label(note);
+        list_row(ui, note);
     }
 }
 
@@ -275,21 +276,21 @@ fn direction_words(name: &str) -> (&'static str, &'static str) {
 fn draw_tooling(ui: &mut Ui, u: Unit, m: &mut Machine) {
     pages::field(ui, "Tooling");
     ui.horizontal(|ui| {
-        ui.label("max tool length");
+        list_row(ui, "max tool length");
         opt(ui, |ui, v| fields::num_named(ui, u, v, "Max tool length"), &mut m.max_tool_length);
-        ui.label("· max diameter");
+        list_row(ui, "· max diameter");
         opt(ui, |ui, v| fields::num_named(ui, u, v, "Max tool diameter"), &mut m.max_tool_diameter);
     });
     ui.horizontal(|ui| {
-        ui.label("changer");
+        list_row(ui, "changer");
         let mut stated = m.tool_count.is_some();
-        if ui.checkbox(&mut stated, "").changed() {
+        if checkbox(ui, &mut stated, "").changed() {
             m.tool_count = if stated { Some(1) } else { None };
         }
         if let Some(n) = &mut m.tool_count {
-            fields::named(ui.add(DragValue::new(n).suffix(" slots")), "Tool changer slots");
+            fields::named(drag_field(ui, DragValue::new(n).suffix(" slots")), "Tool changer slots");
         } else {
-            ui.label("unstated");
+            list_row(ui, "unstated");
         }
     });
 }
@@ -300,12 +301,12 @@ fn draw_coolants(ui: &mut Ui, m: &mut Machine) {
     for (i, c) in m.coolants.iter_mut().enumerate() {
         ui.horizontal(|ui| {
             coolant_name(ui, i, &mut c.name);
-            ui.label("M-code");
-            fields::named(ui.add(TextEdit::singleline(&mut c.m_code).desired_width(50.0)), &format!("Coolant {} M-code", i + 1));
+            list_row(ui, "M-code");
+            fields::named(text_field(ui, TextEdit::singleline(&mut c.m_code).desired_width(50.0)), &format!("Coolant {} M-code", i + 1));
             if c.m_code.is_empty() {
-                ui.label("(named only - posts nothing)");
+                list_row(ui, "(named only - posts nothing)");
             }
-            if ui.button("✖").clicked() {
+            if button(ui, "✖").clicked() {
                 remove = Some(i);
             }
         });
@@ -313,8 +314,7 @@ fn draw_coolants(ui: &mut Ui, m: &mut Machine) {
     if let Some(i) = remove {
         m.coolants.remove(i);
     }
-    if ui
-        .button("add coolant")
+    if button(ui, "add coolant")
         .clicked()
     {
         m.coolants.push(Coolant {
@@ -345,7 +345,7 @@ fn coolant_name(ui: &mut Ui, i: usize, name: &mut String) {
         });
     fields::named(cb.response, &format!("Coolant {} kind", i + 1));
     if !known {
-        fields::named(ui.add(TextEdit::singleline(name).desired_width(90.0).hint_text("name")), &format!("Coolant {} custom name", i + 1));
+        fields::named(text_field(ui, TextEdit::singleline(name).desired_width(90.0).hint_text("name")), &format!("Coolant {} custom name", i + 1));
     }
 }
 
@@ -354,13 +354,13 @@ fn coolant_name(ui: &mut Ui, i: usize, name: &mut String) {
 /// edits - never a 0 that reads back as unstated.
 fn opt(ui: &mut Ui, show: impl FnOnce(&mut Ui, &mut f64), v: &mut Option<f64>) {
     let mut stated = v.is_some();
-    if ui.checkbox(&mut stated, "").changed() {
+    if checkbox(ui, &mut stated, "").changed() {
         *v = if stated { Some(1.0) } else { None };
     }
     match v {
         Some(x) => show(ui, x),
         None => {
-            ui.label("unstated");
+            list_row(ui, "unstated");
         }
     }
 }

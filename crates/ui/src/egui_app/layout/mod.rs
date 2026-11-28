@@ -29,6 +29,8 @@ pub(crate) use scroll_gutter::keep_scroll_gutter;
 #[cfg(test)]
 mod banner_tests;
 #[cfg(test)]
+mod form_seam_families;
+#[cfg(test)]
 mod form_seam_tests;
 #[cfg(test)]
 mod form_seam_ops_tests;

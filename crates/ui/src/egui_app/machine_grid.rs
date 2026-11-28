@@ -7,6 +7,7 @@
 use camcraft_app::machine::Machine;
 use camcraft_app::units::Unit;
 use egui::Ui;
+use super::layout::{list_row, list_row_wrapped};
 
 /// The row gap the overview keeps by default (the machine editor header).
 pub(super) const ROW_GAP: f32 = 4.0;
@@ -19,8 +20,8 @@ pub(super) fn machine_grid(ui: &mut Ui, id: &str, m: &Machine, unit: Unit, extra
         let rows = m.rows(unit);
         let all = rows.iter().map(|(k, v)| (*k, v.as_str())).chain(extra.iter().map(|(k, v)| (*k, v.as_str())));
         for (label, value) in all {
-            ui.label(egui::RichText::new(label).strong());
-            ui.add(egui::Label::new(value).wrap());
+            list_row(ui, egui::RichText::new(label).strong());
+            list_row_wrapped(ui, value);
             ui.end_row();
         }
     });

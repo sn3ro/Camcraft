@@ -25,6 +25,7 @@ use camcraft_app::machine::{
 use camcraft_app::units::Unit;
 
 use super::{fields, pages};
+use super::layout::{button, checkbox, list_row, text_field};
 
 /// Draw the section for a sinker machine; any other kind shows nothing.
 /// The draft's `edm` is only written when an edit changed it, so merely
@@ -71,13 +72,13 @@ fn stated_plain(ui: &mut Ui, label: &str, v: &mut Option<f64>, seed: f64) {
 fn stated_with(ui: &mut Ui, label: &str, v: &mut Option<f64>, seed: f64, show: impl FnOnce(&mut Ui, &mut f64, &str)) {
     ui.horizontal(|ui| {
         let mut on = v.is_some();
-        if ui.checkbox(&mut on, label).changed() {
+        if checkbox(ui, &mut on, label).changed() {
             *v = on.then_some(seed);
         }
         match v {
             Some(x) => show(ui, x, &format!("{label} value")),
             None => {
-                ui.label("not stated");
+                list_row(ui, "not stated");
             }
         }
     });
@@ -88,16 +89,16 @@ fn keys(ui: &mut Ui, u: Unit, e: &mut Edm) {
     stated_num(ui, u, "Max orbit radius", &mut e.max_orbit_radius, 1.0);
     ui.horizontal(|ui| {
         let mut on = e.pickup.is_some();
-        if ui.checkbox(&mut on, "Electrode pickup").changed() {
+        if checkbox(ui, &mut on, "Electrode pickup").changed() {
             e.pickup = on.then(String::new);
         }
         match &mut e.pickup {
             Some(p) => {
-                let l = ui.label("pickup name");
-                ui.add(TextEdit::singleline(p).desired_width(140.0).hint_text("the holder system's name")).labelled_by(l.id);
+                let l = list_row(ui, "pickup name");
+                text_field(ui, TextEdit::singleline(p).desired_width(140.0).hint_text("the holder system's name")).labelled_by(l.id);
             }
             None => {
-                ui.label("not stated");
+                list_row(ui, "not stated");
             }
         }
     });
@@ -117,9 +118,9 @@ fn orbits(ui: &mut Ui, e: &mut Edm) {
             });
             fields::named(cb.response, &format!("Orbit {} kind", i + 1));
             o.kind = ORBIT_KINDS.get(k).copied().unwrap_or("circular").to_owned();
-            let l = ui.label(format!("Orbit {} word", i + 1));
-            ui.add(TextEdit::singleline(&mut o.word).desired_width(80.0).hint_text("control word")).labelled_by(l.id);
-            if ui.button(format!("Remove orbit {}", i + 1)).clicked() {
+            let l = list_row(ui, format!("Orbit {} word", i + 1));
+            text_field(ui, TextEdit::singleline(&mut o.word).desired_width(80.0).hint_text("control word")).labelled_by(l.id);
+            if button(ui, format!("Remove orbit {}", i + 1)).clicked() {
                 remove = Some(i);
             }
         });
@@ -128,9 +129,9 @@ fn orbits(ui: &mut Ui, e: &mut Edm) {
         e.orbits.remove(i);
     }
     if e.orbits.is_empty() {
-        ui.label("no orbits stated");
+        list_row(ui, "no orbits stated");
     }
-    if ui.button("Add orbit").clicked() {
+    if button(ui, "Add orbit").clicked() {
         e.orbits.push(OrbitWord { kind: ORBIT_KINDS[0].to_owned(), word: String::new() });
     }
 }
@@ -141,10 +142,10 @@ fn conditions(ui: &mut Ui, u: Unit, e: &mut Edm) {
     for (i, c) in e.conditions.iter_mut().enumerate() {
         let n = i + 1;
         ui.horizontal_wrapped(|ui| {
-            let l = ui.label(format!("Condition {n} id"));
-            ui.add(TextEdit::singleline(&mut c.id).desired_width(50.0)).labelled_by(l.id);
-            let l = ui.label(format!("Condition {n} name"));
-            ui.add(TextEdit::singleline(&mut c.name).desired_width(90.0)).labelled_by(l.id);
+            let l = list_row(ui, format!("Condition {n} id"));
+            text_field(ui, TextEdit::singleline(&mut c.id).desired_width(50.0)).labelled_by(l.id);
+            let l = list_row(ui, format!("Condition {n} name"));
+            text_field(ui, TextEdit::singleline(&mut c.name).desired_width(90.0)).labelled_by(l.id);
             // Seeds the condition law accepts (#560: a gap > 0, an
             // undersize in (0, 1] mm); the user types the manual's.
             stated_num(ui, u, &format!("Condition {n} gap"), &mut c.gap, GAP_SEED_MM);
@@ -160,7 +161,7 @@ fn conditions(ui: &mut Ui, u: Unit, e: &mut Edm) {
             });
             fields::named(cb.response, &format!("Condition {n} role"));
             c.role = if r == 0 { String::new() } else { CONDITION_ROLES[r - 1].to_owned() };
-            if ui.button(format!("Remove condition {n}")).clicked() {
+            if button(ui, format!("Remove condition {n}")).clicked() {
                 remove = Some(i);
             }
         });
@@ -171,17 +172,17 @@ fn conditions(ui: &mut Ui, u: Unit, e: &mut Edm) {
             // The axial wear rate (#1381): a ratio, so no unit lens. A value
             // outside [0, 1) is named below and refused at Apply.
             stated_plain(ui, &format!("Condition {n} wear rate"), &mut c.wear, WEAR_SEED);
-            let l = ui.label(format!("Condition {n} notes"));
-            ui.add(TextEdit::singleline(&mut c.notes).desired_width(120.0).hint_text("free text")).labelled_by(l.id);
+            let l = list_row(ui, format!("Condition {n} notes"));
+            text_field(ui, TextEdit::singleline(&mut c.notes).desired_width(120.0).hint_text("free text")).labelled_by(l.id);
         });
     }
     if let Some(i) = remove {
         e.conditions.remove(i);
     }
     if e.conditions.is_empty() {
-        ui.label("no conditions stated - a sinker op refuses by name until one is");
+        list_row(ui, "no conditions stated - a sinker op refuses by name until one is");
     }
-    if ui.button("Add condition").clicked() {
+    if button(ui, "Add condition").clicked() {
         let mut n = e.conditions.len() + 1;
         while e.conditions.iter().any(|c| condition_id_key(&c.id) == condition_id_key(&format!("C{n}"))) {
             n += 1;
@@ -195,7 +196,7 @@ fn codes(ui: &mut Ui, codes: &mut BTreeMap<String, String>) {
     for (role, placeholders) in SINKER_CODES {
         ui.horizontal(|ui| {
             let mut on = codes.contains_key(role);
-            if ui.checkbox(&mut on, format!("Code {role}")).changed() {
+            if checkbox(ui, &mut on, format!("Code {role}")).changed() {
                 if on {
                     codes.insert(role.to_owned(), String::new());
                 } else {
@@ -204,19 +205,19 @@ fn codes(ui: &mut Ui, codes: &mut BTreeMap<String, String>) {
             }
             match codes.get_mut(role) {
                 Some(t) => {
-                    let l = ui.label(format!("{role} template"));
+                    let l = list_row(ui, format!("{role} template"));
                     let hint = if placeholders.is_empty() { "the control's word".to_owned() } else { format!("fills {placeholders}") };
-                    ui.add(TextEdit::singleline(t).desired_width(150.0).hint_text(hint)).labelled_by(l.id);
+                    text_field(ui, TextEdit::singleline(t).desired_width(150.0).hint_text(hint)).labelled_by(l.id);
                 }
                 None => {
-                    ui.label("not stated");
+                    list_row(ui, "not stated");
                 }
             }
         });
     }
     let extra: Vec<&str> = codes.keys().map(String::as_str).filter(|k| !SINKER_CODES.iter().any(|(r, _)| r == k)).collect();
     if !extra.is_empty() {
-        ui.label(format!("also states (kept as written): {}", extra.join(", ")));
+        list_row(ui, format!("also states (kept as written): {}", extra.join(", ")));
     }
 }
 

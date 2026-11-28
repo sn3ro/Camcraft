@@ -8,14 +8,14 @@
 //! in the app layer (`camcraft_app::machine::{chain, draft}`): this
 //! file draws the rows and calls the draft on a click.
 
-use egui::{ComboBox, DragValue, Id, Label, Response, RichText, TextEdit, Ui};
+use egui::{ComboBox, DragValue, Id, Response, RichText, TextEdit, Ui};
 
 use camcraft_app::machine::chain::{suggested_letter, AxisRow, Place, Step};
 use camcraft_app::machine::chain_view::ChainView;
 use camcraft_app::machine::draft::MachineDraft;
 use camcraft_app::machine::validate::Refusal;
 
-use super::layout::{button, group_open, list_row, prop_grid, small_button, GROUP_GAP};
+use super::layout::{button, checkbox, drag_field, group_open, list_row, list_row_wrapped, prop_grid, small_button, text_field, GROUP_GAP};
 use super::theme::Tokens;
 
 /// The directions a new rotary can turn about.
@@ -75,7 +75,7 @@ fn named(r: Response, name: String) -> Response {
 /// A row's label in the grid's first column, with its help on hover.
 /// Returns the label's id, to name the control in the second column.
 fn cell(ui: &mut Ui, words: &str, help: &str) -> Id {
-    ui.label(words).on_hover_text(help).id
+    list_row(ui, words).on_hover_text(help).id
 }
 
 /// Draw the group from the draft's view of the chain, built once per
@@ -150,19 +150,19 @@ fn axis_rows(
     });
     ui.end_row();
     let l = cell(ui, &format!("{} moves", r.name), "An axis with the head below it moves the tool; any other moves the work");
-    ui.label(if r.carries_head { "the tool" } else { "the work" }).labelled_by(l);
+    list_row(ui, if r.carries_head { "the tool" } else { "the work" }).labelled_by(l);
     ui.end_row();
     if let Some(e) = row_fields(ui, r) {
         edit = Some(e);
     }
     for note in &view.notes[i] {
-        ui.label("");
-        ui.add(Label::new(RichText::new(format!("Note: {note}")).color(pal.text_dim)).wrap());
+        list_row(ui, "");
+        list_row_wrapped(ui, RichText::new(format!("Note: {note}")).color(pal.text_dim));
         ui.end_row();
     }
     let keys = &view.keys[i];
     for refusal in refusals.iter().filter(|x| keys.contains(&x.key)) {
-        ui.label("");
+        list_row(ui, "");
         super::error_text::error_text(ui, error, &refusal.to_string());
         ui.end_row();
     }
@@ -174,7 +174,7 @@ fn new_axis_form(ui: &mut Ui, form: &mut AxisForm) {
     let letter = DIRECTIONS.get(form.direction).and_then(|d| suggested_letter(d.1)).unwrap_or("A");
     let l = cell(ui, "New axis", "X, Y, Z, U, V or W for a linear; A, B or C for a rotary");
     let field = TextEdit::singleline(&mut form.name).id_salt("machine-axis-new").desired_width(FIELD_W).hint_text(letter);
-    ui.add(field).labelled_by(l);
+    text_field(ui, field).labelled_by(l);
     ui.end_row();
     let l = cell(ui, "Place", "On the table, a rotary turns the work; carrying the head, it tilts the tool");
     let words = |p: Place| if p == Place::OnTable { "On the table" } else { "Carries the head" };
@@ -209,7 +209,7 @@ fn row_fields(ui: &mut Ui, r: &AxisRow) -> Option<Edit> {
     if !r.rotary {
         let l = cell(ui, &format!("{} reversed", r.name), "direction -1: this slide's + moves the other way");
         let mut reversed = r.reversed;
-        let b = ui.checkbox(&mut reversed, "").labelled_by(l);
+        let b = checkbox(ui, &mut reversed, "").labelled_by(l);
         // The blank checkbox's empty name must not hide the row's label.
         b.ctx.accesskit_node_builder(b.id, |n| n.clear_label());
         if b.changed() {
@@ -238,7 +238,7 @@ fn row_fields(ui: &mut Ui, r: &AxisRow) -> Option<Edit> {
         // comes or goes above does not take the focus mid-edit.
         for (c, word) in a.iter_mut().zip(["x", "y", "z"]) {
             let id = ("machine-axis-dir", &r.pointer, word);
-            let d = ui.push_id(id, |ui| ui.add(DragValue::new(c).speed(0.01).max_decimals(4))).inner;
+            let d = ui.push_id(id, |ui| drag_field(ui, DragValue::new(c).speed(0.01).max_decimals(4))).inner;
             changed |= d.on_hover_text(format!("{} axis {word}: any direction, not only ±X, ±Y, ±Z", r.name)).changed();
         }
     });

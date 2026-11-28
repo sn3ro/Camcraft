@@ -15,6 +15,7 @@ use camcraft_app::units::Unit;
 use egui::{ComboBox, TextEdit, Ui};
 
 use super::{fields, pages};
+use super::layout::{button, checkbox, list_row, text_field};
 
 /// The control words a wire post may ask for (#533) - offered as rows
 /// so each shows "not stated" until the user writes it from their
@@ -44,21 +45,21 @@ pub(super) fn section(ui: &mut Ui, u: Unit, m: &mut camcraft_app::machine::Machi
 }
 
 fn labelled_text(ui: &mut Ui, label: &str, text: &mut String, width: f32) {
-    let l = ui.label(label);
-    ui.add(TextEdit::singleline(text).desired_width(width)).labelled_by(l.id);
+    let l = list_row(ui, label);
+    text_field(ui, TextEdit::singleline(text).desired_width(width)).labelled_by(l.id);
 }
 
 /// A stated/unstated number row. Toggling on seeds `seed`, never 0.
 fn opt_row(ui: &mut Ui, label: &str, v: &mut Option<f64>, seed: f64, show: impl FnOnce(&mut Ui, &mut f64, &str)) {
     ui.horizontal(|ui| {
         let mut stated = v.is_some();
-        if ui.checkbox(&mut stated, label).changed() {
+        if checkbox(ui, &mut stated, label).changed() {
             *v = stated.then_some(seed);
         }
         match v {
             Some(x) => show(ui, x, &format!("{label} value")),
             None => {
-                ui.label("not stated");
+                list_row(ui, "not stated");
             }
         }
     });
@@ -69,7 +70,7 @@ fn keys(ui: &mut Ui, u: Unit, e: &mut Edm) {
     opt_row(ui, "upper guide Z", &mut e.upper_guide_z, 50.0, |ui, v, n| fields::num_named(ui, u, v, n));
     opt_row(ui, "max taper (deg)", &mut e.max_taper_deg, 10.0, fields::num_plain_named);
     ui.horizontal(|ui| {
-        ui.label("automatic threading");
+        list_row(ui, "automatic threading");
         let shown = match e.awt {
             None => "not stated",
             Some(true) => "yes",
@@ -83,15 +84,15 @@ fn keys(ui: &mut Ui, u: Unit, e: &mut Edm) {
         fields::named(cb.response, "Automatic wire threading");
     });
     dielectric(ui, e);
-    ui.label("wire diameters the machine takes");
+    list_row(ui, "wire diameters the machine takes");
     if e.wire_diameters.is_empty() {
-        ui.label("not stated");
+        list_row(ui, "not stated");
     }
     let mut remove = None;
     for (i, d) in e.wire_diameters.iter_mut().enumerate() {
         ui.horizontal(|ui| {
             fields::num_named(ui, u, d, &format!("Wire diameter {}", i + 1));
-            if ui.button("✖").on_hover_text("remove this diameter").clicked() {
+            if button(ui, "✖").on_hover_text("remove this diameter").clicked() {
                 remove = Some(i);
             }
         });
@@ -99,7 +100,7 @@ fn keys(ui: &mut Ui, u: Unit, e: &mut Edm) {
     if let Some(i) = remove {
         e.wire_diameters.remove(i);
     }
-    if ui.button("add wire diameter").clicked() {
+    if button(ui, "add wire diameter").clicked() {
         e.wire_diameters.push(0.25);
     }
 }
@@ -109,7 +110,7 @@ fn keys(ui: &mut Ui, u: Unit, e: &mut Edm) {
 /// no word for them).
 fn dielectric(ui: &mut Ui, e: &mut Edm) {
     ui.horizontal(|ui| {
-        ui.label("tank");
+        list_row(ui, "tank");
         let shown = e.tank.map_or("not stated", Tank::word);
         let cb = ComboBox::from_id_salt("edm_tank").selected_text(shown).show_ui(ui, |ui| {
             ui.selectable_value(&mut e.tank, None, "not stated");
@@ -120,7 +121,7 @@ fn dielectric(ui: &mut Ui, e: &mut Edm) {
         fields::named(cb.response, "Tank");
     });
     ui.horizontal(|ui| {
-        ui.label("flushing");
+        list_row(ui, "flushing");
         let shown = e.flushing.map_or("not stated", Flushing::word);
         let cb = ComboBox::from_id_salt("edm_flushing").selected_text(shown).show_ui(ui, |ui| {
             ui.selectable_value(&mut e.flushing, None, "not stated");
@@ -138,7 +139,7 @@ fn dielectric(ui: &mut Ui, e: &mut Edm) {
     }
     ui.add_enabled_ui(e.flushing.is_some(), |ui| {
         ui.horizontal(|ui| {
-            ui.label("skim flushing");
+            list_row(ui, "skim flushing");
             let shown = e.skim_flushing.map_or("not stated", Flushing::word);
             let cb = ComboBox::from_id_salt("edm_skim_flushing").selected_text(shown).show_ui(ui, |ui| {
                 ui.selectable_value(&mut e.skim_flushing, None, "not stated");
@@ -155,7 +156,7 @@ fn codes(ui: &mut Ui, codes: &mut std::collections::BTreeMap<String, String>) {
     for (name, what) in KNOWN_CODES {
         ui.horizontal(|ui| {
             let mut stated = codes.contains_key(name);
-            if ui.checkbox(&mut stated, format!("code {name}")).on_hover_text(what).changed() {
+            if checkbox(ui, &mut stated, format!("code {name}")).on_hover_text(what).changed() {
                 if stated {
                     codes.insert(name.to_owned(), String::new());
                 } else {
@@ -167,7 +168,7 @@ fn codes(ui: &mut Ui, codes: &mut std::collections::BTreeMap<String, String>) {
                     labelled_text(ui, &format!("Code {name}"), t, 150.0);
                 }
                 None => {
-                    ui.label("not stated");
+                    list_row(ui, "not stated");
                 }
             }
         });
@@ -178,7 +179,7 @@ fn codes(ui: &mut Ui, codes: &mut std::collections::BTreeMap<String, String>) {
             if let Some(t) = codes.get_mut(&k) {
                 labelled_text(ui, &format!("Code {k}"), t, 150.0);
             }
-            if ui.button("✖").on_hover_text("remove this code").clicked() {
+            if button(ui, "✖").on_hover_text("remove this code").clicked() {
                 codes.remove(&k);
             }
         });
@@ -187,7 +188,7 @@ fn codes(ui: &mut Ui, codes: &mut std::collections::BTreeMap<String, String>) {
 
 fn conditions(ui: &mut Ui, u: Unit, e: &mut Edm) {
     if e.conditions.is_empty() {
-        ui.label("none stated - every wire operation refuses until one is");
+        list_row(ui, "none stated - every wire operation refuses until one is");
     }
     let mut remove = None;
     for (i, c) in e.conditions.iter_mut().enumerate() {
@@ -197,7 +198,7 @@ fn conditions(ui: &mut Ui, u: Unit, e: &mut Edm) {
             opt_row(ui, &format!("gap {}", i + 1), &mut c.gap, 0.02, |ui, v, n| fields::num_named(ui, u, v, n));
             opt_row(ui, &format!("wire {}", i + 1), &mut c.wire_diameter, 0.25, |ui, v, n| fields::num_named(ui, u, v, n));
             role(ui, i, c);
-            if ui.button("✖").on_hover_text("remove this condition").clicked() {
+            if button(ui, "✖").on_hover_text("remove this condition").clicked() {
                 remove = Some(i);
             }
         });
@@ -205,7 +206,7 @@ fn conditions(ui: &mut Ui, u: Unit, e: &mut Edm) {
     if let Some(i) = remove {
         e.conditions.remove(i);
     }
-    if ui.button("add condition").clicked() {
+    if button(ui, "add condition").clicked() {
         e.conditions.push(Condition::default());
     }
 }

@@ -104,3 +104,31 @@ pub fn readout(ui: &mut Ui, text: impl Into<WidgetText>) -> Response {
 pub fn choice_button_enabled(ui: &mut Ui, enabled: bool, selected: bool, label: impl Into<WidgetText>) -> Response {
     ui.add_enabled(enabled, Button::selectable(selected, label))
 }
+
+/// A configured text field (`TextEdit`) outside a property row, at the
+/// width that the caller set. It draws what `ui.add` drew; the caller
+/// names it.
+pub fn text_field(ui: &mut Ui, te: egui::TextEdit<'_>) -> Response {
+    ui.add(te)
+}
+
+/// A configured number field outside a property row. It draws what
+/// `ui.add` drew; a field in a row uses [`drag_row`].
+pub fn drag_field(ui: &mut Ui, dv: DragValue<'_>) -> Response {
+    ui.add(dv)
+}
+
+/// A form button at a fixed size (a grid of equal buttons).
+pub fn button_sized(ui: &mut Ui, size: Vec2, label: impl Into<WidgetText>) -> Response {
+    ui.add_sized(size, Button::new(label))
+}
+
+/// [`button_enabled`] with an optional fill (the accent of the one next
+/// step, e.g. "New blank" once a kind is picked).
+pub fn button_enabled_fill(ui: &mut Ui, enabled: bool, label: impl Into<WidgetText>, fill: Option<egui::Color32>) -> Response {
+    let b = Button::new(label);
+    ui.add_enabled(enabled, match fill {
+        Some(c) => b.fill(c),
+        None => b,
+    })
+}

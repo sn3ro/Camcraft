@@ -22,7 +22,7 @@
 
 use std::path::{Path, PathBuf};
 
-use egui::{Label, RichText, ScrollArea, Ui};
+use egui::{RichText, ScrollArea, Ui};
 
 use camcraft_app::machine::draft::MachineDraft;
 use camcraft_app::machine::library::{self, MachineEntry, MachineSource};
@@ -31,7 +31,7 @@ use camcraft_app::machine::{store, Kind};
 use super::machine_file_editor::{self as file_editor, MachineFileEditor};
 
 use super::colorvision::text_inks;
-use super::layout::{group_open, prop_grid};
+use super::layout::{button, button_enabled, button_enabled_fill, group_open, list_row, list_row_wrapped, prop_grid};
 use super::theme::Tokens;
 use crate::state::{CommandKind, State};
 use crate::shortcut_keys::chord;
@@ -144,9 +144,8 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
         } else {
             format!("{} machines", list.len())
         };
-        ui.label(RichText::new(count).color(pal.text_dim));
-        if ui
-            .button("Refresh")
+        list_row(ui, RichText::new(count).color(pal.text_dim));
+        if button(ui, "Refresh")
             .on_hover_text("Read the machine files again")
             .clicked()
         {
@@ -170,12 +169,7 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
             super::fields::named(cb.response, "Filter machines by kind");
             // A blank file needs a kind: shut under "All", accent-filled
             // once a kind is picked.
-            let mut blank = egui::Button::new("New blank");
-            if want.is_some() {
-                blank = blank.fill(pal.accent);
-            }
-            if ui
-                .add_enabled(want.is_some(), blank)
+            if button_enabled_fill(ui, want.is_some(), "New blank", want.is_some().then_some(pal.accent))
                 .on_hover_text("A new machine file with the keys its kind requires")
                 .on_disabled_hover_text("Pick a kind first")
                 .clicked()
@@ -184,8 +178,7 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
                 open = Some(Ok(MachineDraft::blank(kind)));
             }
             let has = picked.is_some();
-            if ui
-                .add_enabled(has, egui::Button::new("New from template"))
+            if button_enabled(ui, has, "New from template")
                 .on_hover_text("A new machine file copied from the selected machine")
                 .on_disabled_hover_text("Select a machine to copy")
                 .clicked()
@@ -193,8 +186,7 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
             {
                 open = Some(MachineDraft::from_template(src).map_err(|r| r.to_string()));
             }
-            if ui
-                .add_enabled(has, egui::Button::new("Edit machine"))
+            if button_enabled(ui, has, "Edit machine")
                 .on_hover_text("Edit the selected machine file (a shipped one saves as a copy)")
                 .on_disabled_hover_text("Select a machine to edit")
                 .clicked()
@@ -219,7 +211,7 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
         .auto_shrink([false, true])
         .show(ui, |ui| {
             if shown == 0 {
-                ui.label(RichText::new("No machines of this kind.").color(pal.text_dim));
+                list_row(ui, RichText::new("No machines of this kind.").color(pal.text_dim));
             }
             for (i, e) in list.iter().enumerate() {
                 if !matches_filter(e, want) {
@@ -251,12 +243,12 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
     // including a row selected during this frame, for its refusal reason.
     if let Some(e) = p.selected.and_then(|i| list.get(i)) {
         if e.source.mount_path() != mounted {
-            ui.add(Label::new(RichText::new(format!(
+            list_row_wrapped(ui, RichText::new(format!(
                 "Selected: {} - not yet this setup's machine", e.name
-            )).color(pal.text_dim)).wrap());
+            )).color(pal.text_dim));
         }
         let why = e.assign_block(&state.world);
-        let r = ui.add_enabled(why.is_none(), egui::Button::new(USE_FOR_SETUP));
+        let r = button_enabled(ui, why.is_none(), USE_FOR_SETUP);
         match &why {
             None => {
                 if r.on_hover_text(format!("Make this the setup's machine ({} undoes it)", chord("Z"))).clicked() {
@@ -265,7 +257,7 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
             }
             Some(why) => {
                 r.on_disabled_hover_text(format!("Cannot assign: {why}"));
-                ui.add(Label::new(RichText::new(format!("Cannot assign: {why}")).color(pal.text_dim)).wrap());
+                list_row_wrapped(ui, RichText::new(format!("Cannot assign: {why}")).color(pal.text_dim));
             }
         }
     }
@@ -299,17 +291,17 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
         return;
     }
     let Some(e) = p.selected.and_then(|i| list.get(i)) else {
-        ui.label(RichText::new("Select a machine to see its properties.").color(pal.text_dim));
+        list_row(ui, RichText::new("Select a machine to see its properties.").color(pal.text_dim));
         if reread {
             p.list = None;
         }
         return;
     };
     ScrollArea::vertical().id_salt("machines-detail").auto_shrink([false, true]).show(ui, |ui| {
-        ui.add(Label::new(RichText::new(&e.name).strong()).wrap());
-        ui.add(Label::new(RichText::new(e.source.label()).small().color(pal.text_dim)).wrap());
+        list_row_wrapped(ui, RichText::new(&e.name).strong());
+        list_row_wrapped(ui, RichText::new(e.source.label()).small().color(pal.text_dim));
         let ink = if e.is_valid() { pal.accent } else { inks.error };
-        ui.label(RichText::new(verdict(e)).color(ink).strong());
+        list_row(ui, RichText::new(verdict(e)).color(ink).strong());
         for r in &e.refusals {
             super::error_text::error_text(ui, inks.error, &r.to_string());
         }
@@ -318,8 +310,8 @@ pub(crate) fn draw(ui: &mut Ui, state: &mut State, pal: &Tokens) {
             group_open(ui, &g.title, None, true, |ui| {
                 prop_grid(ui, &format!("machine-{}", g.title), |ui| {
                     for (label, value) in &g.rows {
-                        ui.label(label);
-                        ui.add(Label::new(value).wrap());
+                        list_row(ui, label);
+                        list_row_wrapped(ui, value);
                         ui.end_row();
                     }
                 });
